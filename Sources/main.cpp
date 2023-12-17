@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <iomanip>
+#include <exception>
+#include <chrono>
 using namespace std;
 
 class DepositProduct {
@@ -25,7 +27,10 @@ public:
 
         for (int month = 1; month <= maturityPeriod; ++month) {
             totalAmount += monthlyDeposit; // 월 납입액 추가
-            totalAmount *= (1 + interestRate / 12); // 월 이자 계산
+
+            // 월 이자 계산
+            double monthlyInterest = totalAmount * interestRate / 12;
+            totalAmount += monthlyInterest;
         }
 
         return totalAmount;
@@ -34,7 +39,7 @@ public:
     // 결과 출력 메서드
     void displayResult() const {
         cout << "\n정기예금 계좌 개설이 완료되었습니다.\n";
-        cout << "이름: " << name << "\t생년월일: " << birthdate << endl;
+        cout << "이름: " << name << " \t생년월일: " << birthdate << endl;
         cout << "최종 지불액: " << fixed << setprecision(2) << calculateTotalAmount() << " 원\n";
     }
     
@@ -119,6 +124,7 @@ void checkOwnProduct() {
         string name, birthdate;
         cout << "이름을 입력하세요: ";
         cin >> name;
+        
         cout << "생년월일을 입력하세요 (YYYYMMDD 형식): ";
         cin >> birthdate;
 
@@ -139,16 +145,27 @@ void checkOwnProduct() {
 }
 
 void financialInformation() {
-    // todo6 : 금융 상품 정보 기능을 구현
+    try{
+        ifstream bankfile("bank_product.txt");
+        if(!bankfile)
+            throw runtime_error("파일을 여는데 실패했습니다.");
+        string line;
+        while(getline(bankfile, line)){
+            cout << line << endl;
+        }
+        bankfile.close();
+    } catch(exception &e){
+        cerr << "에러 : " << e.what() << endl;
+    }
 }
 
 int main() {
     int mainMenuChoice;
     
     do {
-        cout << "-----------------------------------예금 상품 제작-------------------------------" << endl;
+        cout << "-----------------------------------<예금 상품 제작 프로그램>-------------------------------" << endl;
         cout << "1. 예금 상품 만들기 \t 2. 본인 상품 확인하기  \t 3. 추천 상품 확인하기  \t 4. 종료"<< endl;
-        cout << "----------------------------------------------------------------------------" << endl;
+        cout << "-------------------------------------------------------------------------------------" << endl;
         cout << "하시고자 하는 업무를 선택하여 주세요 : ";
         cin >> mainMenuChoice;
 
