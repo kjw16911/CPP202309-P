@@ -5,6 +5,8 @@
 #include <iomanip>
 #include <exception>
 #include <chrono>
+#include <algorithm>
+#include <cmath>
 using namespace std;
 
 class DepositProduct {
@@ -19,16 +21,14 @@ public:
 public:
     // 생성자
     DepositProduct(const string& n, const string& bd, double p, double rate, int period, double deposit)
-            : name(n), birthdate(bd), principal(p), interestRate(rate / 100.0), maturityPeriod(period), monthlyDeposit(deposit) {}
+        : name(n), birthdate(bd), principal(p), interestRate(rate / 100.0), maturityPeriod(period), monthlyDeposit(deposit) {}
 
-    // 예금 계산 메서드
     double calculateTotalAmount() const {
-        double totalAmount = principal; // 최종 지불액 초기화
+        double totalAmount = principal;
 
         for (int month = 1; month <= maturityPeriod; ++month) {
-            totalAmount += monthlyDeposit; // 월 납입액 추가
+            totalAmount += monthlyDeposit;
 
-            // 월 이자 계산
             double monthlyInterest = totalAmount * interestRate / 12;
             totalAmount += monthlyInterest;
         }
@@ -36,26 +36,35 @@ public:
         return totalAmount;
     }
 
-    // 결과 출력 메서드
     void displayResult() const {
         cout << "\n정기예금 계좌 개설이 완료되었습니다.\n";
-        cout << "이름: " << name << " \t생년월일: " << birthdate << endl;
-        cout << "최종 지불액: " << fixed << setprecision(2) << calculateTotalAmount() << " 원\n";
+        cout << "이름: " << name << " \t생년월일: " << birthdate << std::endl;
+        cout << "최종 지불액: " << std::fixed << std::setprecision(2) << calculateTotalAmount() << " 원\n";
     }
-    
-    // 계좌 정보를 파일에 저장
+
     void saveToFile() const {
-        ofstream outFile("deposit_info.txt", ios::app);
+        ofstream outFile("deposit_info.txt", std::ios::app);
         if (outFile.is_open()) {
-            outFile << name << " " << birthdate << " " << principal << " " << interestRate << " " << maturityPeriod << " " << monthlyDeposit << endl;
+            outFile << name << " " << birthdate << " " << principal << " " << interestRate << " " << maturityPeriod << " " << monthlyDeposit << std::endl;
             outFile.close();
         } else {
-            cout << "파일을 열 수 없습니다." << endl;
+            cout << "파일을 열 수 없습니다." << std::endl;
         }
     }
 
-    // 파일에서 계좌 정보를 불러오기
+    static vector<DepositProduct> createdProducts;
+
+    static const DepositProduct& getLastCreatedProduct() {
+        if (!createdProducts.empty()) {
+            return createdProducts.back();
+        } else {
+            throw logic_error("No products created yet.");
+        }
+    }
+
     static vector<DepositProduct> loadFromFile() {
+        createdProducts.clear();
+
         vector<DepositProduct> accounts;
         ifstream inFile("deposit_info.txt");
         if (inFile.is_open()) {
@@ -64,24 +73,80 @@ public:
                 double p, rate, deposit;
                 int period;
                 if (!(inFile >> n >> bd >> p >> rate >> period >> deposit)) {
-                    break;  // 파일 끝에 도달하면 종료
+                    break;
                 }
                 DepositProduct account(n, bd, p, rate, period, deposit);
                 accounts.push_back(account);
             }
             inFile.close();
         } else {
-            cout << "파일을 열 수 없습니다." << endl;
+            cout << "파일을 열 수 없습니다." << std::endl;
         }
+
+        createdProducts = accounts;  // Store loaded data in createdProducts
+
         return accounts;
     }
 };
 
-class FinancialInformation {
+class BankProduct {
 public:
-    // todo2 : 금융 정보에 관련된 속성과 기능을 정의
+    string bankName;
+    string productName;
+    double maxInterestRate;
+    double basicInterestRate;
+    
+    BankProduct(const string& bn, const string& pn, double maxRate, double basicRate)
+            : bankName(bn), productName(pn), maxInterestRate(maxRate), basicInterestRate(basicRate){}
 };
 
+vector<BankProduct> readBankProductsFromFile(){
+    vector<BankProduct> bankProducts;
+    
+    ifstream inFile("bank_product.txt");
+    if(inFile.is_open()){
+        while(true){
+            string bankName, productName;
+            double maxInterestRate, basicInterestRate;
+            
+            if(!(inFile >> bankName >> productName >> maxInterestRate >> basicInterestRate)){
+                break;
+            }
+            
+            BankProduct product(bankName, productName, maxInterestRate, basicInterestRate);
+            bankProducts.push_back(product);
+        }
+        inFile.close();
+    }else {
+        cout << "파일을 열 수 없습니다." << endl;
+    }
+    return bankProducts;
+}
+
+vector<DepositProduct> DepositProduct::createdProducts;
+
+void recommendSimilarProducts(const DepositProduct& userProduct, const vector<BankProduct>& bankProducts) {
+    cout << "\n유사한 은행 상품 추천:\n";
+
+    vector<BankProduct> similarProducts;
+    for (const auto& bankProduct : bankProducts) {
+        if (abs(userProduct.interestRate - bankProduct.maxInterestRate) < 0.5 &&
+            userProduct.maturityPeriod == 12) {  // 예시로 만기 기간을 12로 설정
+            similarProducts.push_back(bankProduct);
+        }
+    }
+
+    sort(similarProducts.begin(), similarProducts.end(),
+              [](const BankProduct& a, const BankProduct& b) {
+                  return a.maxInterestRate > b.maxInterestRate;
+              });
+
+    const int numRecommendations = 3;
+    for (int i = 0; i < min(numRecommendations, static_cast<int>(similarProducts.size())); ++i) {
+        cout << similarProducts[i].bankName << "/" << similarProducts[i].productName
+                  << "/최고 " << similarProducts[i].maxInterestRate << "%/기본 " << similarProducts[i].basicInterestRate << "%" << endl;
+    }
+}
 
 void createDepositProduct() {
     // 사용자로부터 입력 받기
@@ -159,6 +224,10 @@ void financialInformation() {
     }
 }
 
+void displayExitMessage() {
+    cout << "프로그램을 종료합니다." << std::endl;
+}
+
 int main() {
     int mainMenuChoice;
     
@@ -177,13 +246,29 @@ int main() {
                 checkOwnProduct();
                 break;
             case 3:
+                /*
+                // 사용자가 만든 상품 정보 로드
+                DepositProduct::loadFromFile();
+
+                // 은행 상품 정보 로드
+                vector<BankProduct> bankProducts = readBankProductsFromFile("bank_product.txt");
+
+                if (!bankProducts.empty() && !DepositProduct::createdProducts.empty()) {
+                    const DepositProduct& userProduct = DepositProduct::getLastCreatedProduct();
+                    recommendSimilarProducts(userProduct, bankProducts);
+                } else {
+                    cout << "은행 상품 정보 또는 사용자 상품 정보가 없습니다." << endl;
+                }
+                 */
                 financialInformation();
                 break;
+            
             case 4:
-                cout << "프로그램을 종료합니다." << endl;
+                displayExitMessage();
                 break;
+                
             default:
-                cout << "올바르지 않은 선택입니다. 다시 선택하세요." << endl;
+                cout << "올바르지 않은 선택입니다. 다시 선택하세요." << std::endl;
                 break;
         }
     } while (mainMenuChoice != 4);
